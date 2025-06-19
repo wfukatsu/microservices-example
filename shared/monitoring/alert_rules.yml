@@ -1,0 +1,146 @@
+groups:
+  - name: microservices_alerts
+    rules:
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_server_requests_total{status=~"5.."}[5m]) /
+            rate(http_server_requests_total[5m])
+          ) * 100 > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected for {{ $labels.job }}"
+          description: "Error rate is {{ $value }}% for service {{ $labels.job }}"
+
+      # High Response Time Alert
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_server_requests_duration_seconds_bucket[5m])
+          ) > 2
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time detected for {{ $labels.job }}"
+          description: "95th percentile response time is {{ $value }}s for service {{ $labels.job }}"
+
+      # Service Down Alert
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 1 minute"
+
+      # ScalarDB Transaction Failure Alert
+      - alert: ScalarDBTransactionFailure
+        expr: |
+          rate(scalardb_transaction_total{status="failed"}[5m]) > 0.1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ScalarDB transaction failures detected"
+          description: "ScalarDB transaction failure rate is {{ $value }}/sec for {{ $labels.job }}"
+
+      # Circuit Breaker Open Alert
+      - alert: CircuitBreakerOpen
+        expr: |
+          resilience4j_circuitbreaker_state{state="open"} == 1
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Circuit breaker open for {{ $labels.name }}"
+          description: "Circuit breaker {{ $labels.name }} is open in service {{ $labels.job }}"
+
+      # High Memory Usage Alert
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            jvm_memory_used_bytes{area="heap"} /
+            jvm_memory_max_bytes{area="heap"}
+          ) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage for {{ $labels.job }}"
+          description: "Memory usage is {{ $value }}% for service {{ $labels.job }}"
+
+      # Database Connection Pool Alert
+      - alert: DatabaseConnectionPoolExhaustion
+        expr: |
+          hikaricp_connections_active / hikaricp_connections_max > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connection pool near exhaustion"
+          description: "Connection pool usage is {{ $value }}% for {{ $labels.job }}"
+
+      # Order Processing Failure Alert
+      - alert: OrderProcessingFailure
+        expr: |
+          rate(order_processing_total{status="failed"}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High order processing failure rate"
+          description: "Order processing failure rate is {{ $value }}/sec"
+
+      # Inventory Stock Alert
+      - alert: LowInventoryStock
+        expr: |
+          inventory_stock_level < 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low inventory stock for product {{ $labels.product_id }}"
+          description: "Stock level is {{ $value }} for product {{ $labels.product_id }}"
+
+      # Payment Processing Alert
+      - alert: PaymentProcessingFailure
+        expr: |
+          rate(payment_processing_total{status="failed"}[5m]) > 0.02
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Payment processing failures detected"
+          description: "Payment failure rate is {{ $value }}/sec"
+
+  - name: infrastructure_alerts
+    rules:
+      # Disk Space Alert
+      - alert: DiskSpaceHigh
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/"} /
+            node_filesystem_size_bytes{mountpoint="/"}
+          ) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space critically low"
+          description: "Disk space usage is above 90% on {{ $labels.instance }}"
+
+      # CPU Usage Alert
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }}"

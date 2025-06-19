@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: inventory-service-test
+  profiles:
+    active: test
+
+server:
+  port: 0
+
+scalardb:
+  properties: classpath:scalardb-test.properties
+
+# Inventory configuration for testing
+inventory:
+  reservation:
+    expiry-hours: 1
+    auto-cleanup: false
+  stock:
+    low-threshold: 5
+    alert-enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.scalar.db: WARN
+    com.example.inventory: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

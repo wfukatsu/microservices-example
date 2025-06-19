@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+      "Bash(../start-services.sh status)",
+      "Bash(grep:*)",
+      "Bash(../stop-services.sh status)",
+      "Bash(../start-services.sh backend)",
+      "Bash(npm install:*)",
+      "Bash(node:*)",
+      "Bash(pkill:*)",
+      "Bash(true)",
+      "Bash(curl:*)",
+      "Bash(kill:*)",
+      "Bash(bash:*)",
+      "Bash(rm:*)",
+      "Bash(git --git-dir=/Users/wfukatsu/playground-claude/microservice-samples/.git --work-tree=/Users/wfukatsu/playground-claude/microservice-samples status)",
+      "Bash(git init:*)"
+    ],
+    "deny": []
+  }
+}

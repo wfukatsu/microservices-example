@@ -1,0 +1,100 @@
+spring:
+  application:
+    name: order-service-test
+  profiles:
+    active: test
+
+server:
+  port: 0
+
+scalardb:
+  properties: classpath:scalardb-test.properties
+
+# Test service configurations
+services:
+  inventory:
+    url: http://localhost:8081
+    timeout: 5s
+    retry:
+      max-attempts: 1
+      delay: 100ms
+  payment:
+    url: http://localhost:8082
+    timeout: 5s
+    retry:
+      max-attempts: 1
+      delay: 100ms
+  shipping:
+    url: http://localhost:8083
+    timeout: 5s
+    retry:
+      max-attempts: 1
+      delay: 100ms
+
+# Order process configuration for testing
+order:
+  process:
+    timeout: 30s
+    retry:
+      max-attempts: 1
+      backoff-multiplier: 1
+    compensation:
+      enabled: true
+      async: false
+      max-retry: 1
+  
+  inventory:
+    reservation-expiry-hours: 1
+  
+  payment:
+    auto-capture: true
+    capture-timeout: 5s
+
+# Circuit breaker configuration for testing
+resilience4j:
+  circuitbreaker:
+    instances:
+      inventory-service:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 1s
+        sliding-window-size: 2
+        minimum-number-of-calls: 1
+      payment-service:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 1s
+        sliding-window-size: 2
+        minimum-number-of-calls: 1
+      shipping-service:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 1s
+        sliding-window-size: 2
+        minimum-number-of-calls: 1
+  retry:
+    instances:
+      inventory-service:
+        max-attempts: 1
+        wait-duration: 100ms
+      payment-service:
+        max-attempts: 1
+        wait-duration: 100ms
+      shipping-service:
+        max-attempts: 1
+        wait-duration: 100ms
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.scalar.db: WARN
+    com.example.order: DEBUG
+    feign: DEBUG
+    org.springframework.web: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

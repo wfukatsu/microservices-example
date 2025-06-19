@@ -1,0 +1,111 @@
+spring:
+  application:
+    name: order-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 5000
+            readTimeout: 30000
+
+server:
+  port: ${SERVER_PORT:8080}
+
+scalardb:
+  properties: classpath:scalardb.properties
+
+# External service configurations
+services:
+  inventory:
+    url: ${INVENTORY_SERVICE_URL:http://localhost:8081}
+    timeout: 30s
+    retry:
+      max-attempts: 3
+      delay: 1s
+  payment:
+    url: ${PAYMENT_SERVICE_URL:http://localhost:8082}
+    timeout: 60s
+    retry:
+      max-attempts: 3
+      delay: 2s
+  shipping:
+    url: ${SHIPPING_SERVICE_URL:http://localhost:8083}
+    timeout: 45s
+    retry:
+      max-attempts: 3
+      delay: 1s
+
+# Order process configuration
+order:
+  process:
+    timeout: 300s # 5分
+    retry:
+      max-attempts: 3
+      backoff-multiplier: 2
+    compensation:
+      enabled: true
+      async: true
+      max-retry: 5
+  
+  inventory:
+    reservation-expiry-hours: 24
+  
+  payment:
+    auto-capture: true
+    capture-timeout: 60s
+
+# Circuit breaker configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      inventory-service:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+      payment-service:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 60s
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+      shipping-service:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+  retry:
+    instances:
+      inventory-service:
+        max-attempts: 3
+        wait-duration: 1s
+      payment-service:
+        max-attempts: 3
+        wait-duration: 2s
+      shipping-service:
+        max-attempts: 3
+        wait-duration: 1s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    com.scalar.db: DEBUG
+    com.example.order: DEBUG
+    feign: DEBUG
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

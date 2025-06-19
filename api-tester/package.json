@@ -1,0 +1,26 @@
+{
+  "name": "microservices-api-tester",
+  "version": "1.0.0",
+  "description": "Simple UI for testing ScalarDB Microservices APIs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "microservices",
+    "api",
+    "testing",
+    "scalardb",
+    "spring-boot"
+  ],
+  "author": "Claude Code",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "http-proxy-middleware": "^2.0.6"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

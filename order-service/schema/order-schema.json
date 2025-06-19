@@ -1,0 +1,36 @@
+{
+  "order_service.orders": {
+    "transaction": true,
+    "partition-key": ["order_id"],
+    "columns": {
+      "order_id": "TEXT",
+      "customer_id": "TEXT",
+      "status": "TEXT",
+      "total_amount": "BIGINT",
+      "currency": "TEXT",
+      "payment_method": "TEXT",
+      "shipping_address": "TEXT",
+      "notes": "TEXT",
+      "created_at": "BIGINT",
+      "updated_at": "BIGINT",
+      "inventory_reservation_id": "TEXT",
+      "payment_id": "TEXT",
+      "shipment_id": "TEXT"
+    }
+  },
+  "order_service.order_items": {
+    "transaction": true,
+    "partition-key": ["order_id", "product_id"],
+    "columns": {
+      "order_id": "TEXT",
+      "product_id": "TEXT",
+      "product_name": "TEXT",
+      "quantity": "INT",
+      "unit_price": "BIGINT",
+      "total_price": "BIGINT",
+      "currency": "TEXT",
+      "weight": "BIGINT",
+      "created_at": "BIGINT"
+    }
+  }
+}

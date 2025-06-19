@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  # Test database services for integration testing
+  test-db-inventory:
+    image: alpine/socat
+    command: TCP-LISTEN:5432,fork TCP:host.docker.internal:5432
+    ports:
+      - "5433:5432"
+    profiles:
+      - test
+  
+  test-db-payment:
+    image: alpine/socat
+    command: TCP-LISTEN:5432,fork TCP:host.docker.internal:5432
+    ports:
+      - "5434:5432"
+    profiles:
+      - test
+  
+  test-db-shipping:
+    image: alpine/socat
+    command: TCP-LISTEN:5432,fork TCP:host.docker.internal:5432
+    ports:
+      - "5435:5432"
+    profiles:
+      - test
+  
+  test-db-order:
+    image: alpine/socat
+    command: TCP-LISTEN:5432,fork TCP:host.docker.internal:5432
+    ports:
+      - "5436:5432"
+    profiles:
+      - test
+
+  # WireMock servers for external service mocking
+  wiremock-inventory:
+    image: wiremock/wiremock:latest
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./wiremock/inventory:/home/wiremock/mappings
+    profiles:
+      - test
+  
+  wiremock-payment:
+    image: wiremock/wiremock:latest
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./wiremock/payment:/home/wiremock/mappings
+    profiles:
+      - test
+  
+  wiremock-shipping:
+    image: wiremock/wiremock:latest
+    ports:
+      - "8083:8080"
+    volumes:
+      - ./wiremock/shipping:/home/wiremock/mappings
+    profiles:
+      - test
+
+  # Test monitoring and observability
+  prometheus-test:
+    image: prom/prometheus:latest
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus/prometheus-test.yml:/etc/prometheus/prometheus.yml
+    profiles:
+      - test
+  
+  grafana-test:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=test123
+    volumes:
+      - ./grafana/datasources-test.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./grafana/dashboards-test.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ./grafana/microservices-dashboard.json:/var/lib/grafana/dashboards/microservices.json
+    profiles:
+      - test
+
+networks:
+  default:
+    name: microservices-test-network

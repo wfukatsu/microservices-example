@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: inventory-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+server:
+  port: ${SERVER_PORT:8081}
+
+scalardb:
+  properties: classpath:scalardb.properties
+
+# Inventory service specific configuration
+inventory:
+  reservation:
+    default-expiry-hours: 24
+    cleanup-interval-minutes: 60
+  low-stock:
+    threshold: 10
+    notification-enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    com.scalar.db: DEBUG
+    com.example.inventory: DEBUG
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

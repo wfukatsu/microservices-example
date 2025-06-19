@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScalarDB マイクロサービス デモアプリケーション</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .tab-container {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #6c757d;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            background: white;
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .tab:hover {
+            background: #e9ecef;
+        }
+
+        .tab-content {
+            padding: 30px;
+            min-height: 500px;
+        }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .card h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .status-display {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .status-success {
+            border-left: 4px solid #28a745;
+        }
+
+        .status-error {
+            border-left: 4px solid #dc3545;
+        }
+
+        .status-info {
+            border-left: 4px solid #17a2b8;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .result-container pre {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 0.9rem;
+        }
+
+        .inventory-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .inventory-item h4 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+
+        .inventory-item .details {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .inventory-item .stock {
+            text-align: right;
+        }
+
+        .stock-low {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .stock-ok {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .wallet-balance {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .wallet-balance h2 {
+            margin: 0;
+            font-size: 2rem;
+        }
+
+        .tracking-step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            background: white;
+        }
+
+        .tracking-step.completed {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+        }
+
+        .tracking-step.current {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .tracking-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #6c757d;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-weight: bold;
+        }
+
+        .tracking-step.completed .tracking-icon {
+            background: #28a745;
+        }
+
+        .tracking-step.current .tracking-icon {
+            background: #17a2b8;
+        }
+
+        .order-summary {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .order-item:last-child {
+            border-bottom: none;
+            font-weight: bold;
+            background: #f8f9fa;
+            margin: 10px -20px -20px -20px;
+            padding: 15px 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏪 ScalarDB マイクロサービス</h1>
+            <p>在庫管理・決済・配送システム デモアプリケーション</p>
+        </div>
+
+        <div class="tab-container">
+            <button class="tab active" onclick="showTab('inventory')">📦 在庫管理</button>
+            <button class="tab" onclick="showTab('wallet')">💰 ウォレット</button>
+            <button class="tab" onclick="showTab('order')">🛒 注文処理</button>
+            <button class="tab" onclick="showTab('tracking')">🚚 配送追跡</button>
+        </div>
+
+        <div class="tab-content">
+            <!-- Inventory Management Tab -->
+            <div id="inventory-tab" class="tab-pane active">
+                <div class="grid">
+                    <div class="card">
+                        <h3>📋 在庫一覧</h3>
+                        <button class="btn btn-primary" onclick="loadInventory()">在庫を更新</button>
+                        <div id="inventory-list"></div>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>📈 在庫補充</h3>
+                        <div class="form-group">
+                            <label>商品ID</label>
+                            <select class="form-control" id="restock-product">
+                                <option value="">商品を選択...</option>
+                                <option value="ITEM001">ITEM001 - ノートパソコン</option>
+                                <option value="ITEM002">ITEM002 - スマートフォン</option>
+                                <option value="ITEM003">ITEM003 - マウス</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>補充数量</label>
+                            <input type="number" class="form-control" id="restock-quantity" min="1" value="10">
+                        </div>
+                        <div class="form-group">
+                            <label>サプライヤー</label>
+                            <input type="text" class="form-control" id="restock-supplier" value="DEFAULT_SUPPLIER">
+                        </div>
+                        <div class="form-group">
+                            <label>コスト (円)</label>
+                            <input type="number" class="form-control" id="restock-cost" min="0" value="0">
+                        </div>
+                        <button class="btn btn-success" onclick="restockInventory()">在庫補充実行</button>
+                    </div>
+                </div>
+                <div id="inventory-result" class="result-container" style="display: none;"></div>
+            </div>
+
+            <!-- Wallet Management Tab -->
+            <div id="wallet-tab" class="tab-pane">
+                <div class="grid">
+                    <div class="card">
+                        <h3>👤 ウォレット残高確認</h3>
+                        <div class="form-group">
+                            <label>顧客ID</label>
+                            <select class="form-control" id="wallet-customer">
+                                <option value="">顧客を選択...</option>
+                                <option value="DEMO-USER-001">DEMO-USER-001</option>
+                                <option value="DEMO-USER-002">DEMO-USER-002</option>
+                                <option value="DEMO-USER-003">DEMO-USER-003</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-info" onclick="checkWalletBalance()">残高確認</button>
+                        <div id="wallet-balance-display"></div>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>💳 資金追加</h3>
+                        <div class="form-group">
+                            <label>顧客ID</label>
+                            <select class="form-control" id="add-funds-customer">
+                                <option value="">顧客を選択...</option>
+                                <option value="DEMO-USER-001">DEMO-USER-001</option>
+                                <option value="DEMO-USER-002">DEMO-USER-002</option>
+                                <option value="DEMO-USER-003">DEMO-USER-003</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>追加金額 (円)</label>
+                            <input type="number" class="form-control" id="add-amount" min="1" value="10000">
+                        </div>
+                        <div class="form-group">
+                            <label>資金源</label>
+                            <select class="form-control" id="funding-source">
+                                <option value="BANK_TRANSFER">銀行振込</option>
+                                <option value="CREDIT_CARD">クレジットカード</option>
+                                <option value="CASH">現金</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-success" onclick="addFunds()">資金追加</button>
+                    </div>
+                </div>
+                <div id="wallet-result" class="result-container" style="display: none;"></div>
+            </div>
+
+            <!-- Order Processing Tab -->
+            <div id="order-tab" class="tab-pane">
+                <div class="card">
+                    <h3>🛍️ デモ注文処理</h3>
+                    <div class="grid">
+                        <div>
+                            <div class="form-group">
+                                <label>顧客ID</label>
+                                <select class="form-control" id="order-customer">
+                                    <option value="">顧客を選択...</option>
+                                    <option value="DEMO-USER-001">DEMO-USER-001</option>
+                                    <option value="DEMO-USER-002">DEMO-USER-002</option>
+                                    <option value="DEMO-USER-003">DEMO-USER-003</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>決済方法</label>
+                                <div>
+                                    <label><input type="radio" name="payment-method" value="wallet" checked> ウォレット決済</label><br>
+                                    <label><input type="radio" name="payment-method" value="credit"> クレジットカード</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="form-group">
+                                <label>配送先情報</label>
+                                <input type="text" class="form-control" id="shipping-name" placeholder="お名前" value="田中太郎">
+                                <input type="text" class="form-control" id="shipping-postal" placeholder="郵便番号" value="100-0001" style="margin-top: 10px;">
+                                <input type="text" class="form-control" id="shipping-address" placeholder="住所" value="東京都千代田区千代田1-1-1" style="margin-top: 10px;">
+                                <input type="text" class="form-control" id="shipping-phone" placeholder="電話番号" value="03-1234-5678" style="margin-top: 10px;">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h4>📦 注文商品</h4>
+                    <div id="order-items">
+                        <div class="order-item-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+                            <select class="form-control" style="flex: 2;">
+                                <option value="ITEM001">ITEM001 - ノートパソコン (¥80,000)</option>
+                                <option value="ITEM002">ITEM002 - スマートフォン (¥60,000)</option>
+                                <option value="ITEM003">ITEM003 - マウス (¥2,500)</option>
+                            </select>
+                            <input type="number" class="form-control" placeholder="数量" value="1" min="1" style="flex: 1;">
+                            <button class="btn btn-warning" onclick="removeOrderItem(this)">削除</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-info" onclick="addOrderItem()">商品追加</button>
+                    <button class="btn btn-primary" onclick="processOrder()" style="margin-left: 10px;">注文処理実行</button>
+                </div>
+                <div id="order-result" class="result-container" style="display: none;"></div>
+            </div>
+
+            <!-- Shipping Tracking Tab -->
+            <div id="tracking-tab" class="tab-pane">
+                <div class="card">
+                    <h3>📍 配送状況追跡</h3>
+                    <div class="form-group">
+                        <label>追跡番号</label>
+                        <input type="text" class="form-control" id="tracking-number" placeholder="例: DEMO1700000000000">
+                    </div>
+                    <button class="btn btn-primary" onclick="trackShipment()">配送状況確認</button>
+                </div>
+                <div id="tracking-result" class="result-container" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="demo.js"></script>
+</body>
+</html>

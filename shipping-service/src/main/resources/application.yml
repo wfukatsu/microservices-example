@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: shipping-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  task:
+    scheduling:
+      enabled: true
+
+server:
+  port: ${SERVER_PORT:8083}
+
+scalardb:
+  properties: classpath:scalardb.properties
+
+# Shipping service specific configuration
+shipping:
+  carriers:
+    yamato:
+      api-url: ${YAMATO_API_URL:http://mock-yamato.example.com}
+      api-key: ${YAMATO_API_KEY:mock_key}
+      tracking-url: "https://toi.kuronekoyamato.co.jp/cgi-bin/tneko"
+    sagawa:
+      api-url: ${SAGAWA_API_URL:http://mock-sagawa.example.com}
+      api-key: ${SAGAWA_API_KEY:mock_key}
+      tracking-url: "https://k2k.sagawa-exp.co.jp/p/sagawa/web/okurijoinput.jsp"
+    jpost:
+      api-url: ${JPOST_API_URL:http://mock-jpost.example.com}
+      api-key: ${JPOST_API_KEY:mock_key}
+      tracking-url: "https://trackings.post.japanpost.jp/services/srv/search/"
+  
+  tracking:
+    sync-interval: 300000 # 5分
+    max-retries: 3
+    retry-delay: 60000 # 1分
+  
+  default-currency: JPY
+  weight-unit: kg
+  dimension-unit: cm
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    com.scalar.db: DEBUG
+    com.example.shipping: DEBUG
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

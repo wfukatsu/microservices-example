@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: payment-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+server:
+  port: ${SERVER_PORT:8082}
+
+scalardb:
+  properties: classpath:scalardb.properties
+
+# Payment service specific configuration
+payment:
+  providers:
+    stripe:
+      api-key: ${STRIPE_API_KEY:sk_test_dummy}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_dummy}
+      api-version: "2023-10-16"
+    paypal:
+      client-id: ${PAYPAL_CLIENT_ID:dummy_client_id}
+      client-secret: ${PAYPAL_CLIENT_SECRET:dummy_secret}
+      environment: ${PAYPAL_ENVIRONMENT:sandbox}
+  
+  default-currency: JPY
+  refund:
+    max-days: 30
+    auto-process: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    com.scalar.db: DEBUG
+    com.example.payment: DEBUG
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
