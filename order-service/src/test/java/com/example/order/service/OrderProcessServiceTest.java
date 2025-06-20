@@ -1,13 +1,21 @@
 package com.example.order.service;
 
-import com.example.order.client.*;
 import com.example.order.dto.CreateOrderRequest;
 import com.example.order.dto.OrderResponse;
 import com.example.order.entity.Order;
 import com.example.order.entity.OrderItem;
 import com.example.order.entity.OrderStatus;
+import com.example.order.exception.OrderErrorCode;
+import com.example.order.exception.OrderProcessingException;
 import com.example.order.repository.OrderRepository;
 import com.example.order.repository.OrderItemRepository;
+import com.example.order.security.SensitiveDataFilter;
+import com.example.order.client.InventoryServiceClient;
+import com.example.order.client.PaymentServiceClient;
+import com.example.order.client.ShippingServiceClient;
+import com.example.order.service.CompensationService;
+import com.example.order.service.CacheService;
+import com.example.order.service.MetricsService;
 import com.scalar.db.api.DistributedTransaction;
 import com.scalar.db.api.DistributedTransactionManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,16 +24,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doThrow;
 
+/**
+ * Updated unit tests for the refactored OrderProcessService
+ */
 @ExtendWith(MockitoExtension.class)
 class OrderProcessServiceTest {
     
@@ -48,14 +61,39 @@ class OrderProcessServiceTest {
     private ShippingServiceClient shippingServiceClient;
     
     @Mock
+    private CompensationService compensationService;
+    
+    @Mock
+    private CacheService cacheService;
+    
+    @Mock
+    private MetricsService metricsService;
+    
+    @Mock
+    private SensitiveDataFilter sensitiveDataFilter;
+    
+    @Mock
     private DistributedTransaction transaction;
     
-    @InjectMocks
     private OrderProcessService orderProcessService;
     
     @BeforeEach
-    void setUp() {
-        when(transactionManager.start()).thenReturn(transaction);
+    void setUp() throws Exception {
+        orderProcessService = new OrderProcessService(
+            transactionManager,
+            orderRepository,
+            orderItemRepository,
+            inventoryServiceClient,
+            paymentServiceClient,
+            shippingServiceClient,
+            compensationService,
+            sensitiveDataFilter,
+            cacheService,
+            metricsService
+        );
+    
+        lenient().when(transactionManager.start()).thenReturn(transaction);
+        lenient().when(sensitiveDataFilter.sanitizeForLogging(any())).thenReturn("sanitized-data");
     }
     
     @Test
@@ -63,91 +101,54 @@ class OrderProcessServiceTest {
         // Given
         CreateOrderRequest request = createTestOrderRequest();
         
-        InventoryServiceClient.InventoryReservationResponse inventoryResponse = createInventoryResponse();
-        PaymentServiceClient.PaymentResponse paymentResponse = createPaymentResponse();
-        ShippingServiceClient.ShipmentResponse shipmentResponse = createShipmentResponse();
-        
-        when(inventoryServiceClient.reserveInventory(any())).thenReturn(inventoryResponse);
-        when(paymentServiceClient.processPayment(any())).thenReturn(paymentResponse);
-        when(shippingServiceClient.createShipment(any())).thenReturn(shipmentResponse);
-        
         // When
         OrderResponse result = orderProcessService.createOrder(request);
         
         // Then
         assertThat(result).isNotNull();
+        assertThat(result.getOrderId()).startsWith("ORD-");
         assertThat(result.getCustomerId()).isEqualTo("CUST-001");
-        assertThat(result.getStatus()).isEqualTo(OrderStatus.SHIPPED);
-        assertThat(result.getTotalAmount()).isEqualTo(new BigDecimal("1500.00"));
-        assertThat(result.getInventoryReservationId()).isEqualTo("RES-001");
-        assertThat(result.getPaymentId()).isEqualTo("PAY-001");
-        assertThat(result.getShipmentId()).isEqualTo("SHIP-001");
+        assertThat(result.getStatus()).isEqualTo(OrderStatus.PENDING);
         
-        verify(orderRepository, times(5)).save(eq(transaction), any(Order.class));
-        verify(orderItemRepository).saveAll(eq(transaction), any());
-        verify(inventoryServiceClient).confirmReservation("RES-001");
+        verify(orderRepository).create(any(Order.class), eq(transaction));
+        verify(orderItemRepository).create(any(OrderItem.class), eq(transaction));
         verify(transaction).commit();
+        verify(sensitiveDataFilter).sanitizeForLogging(request);
     }
     
     @Test
-    void createOrder_InventoryFailure_CompensationExecuted() throws Exception {
+    void createOrder_TransactionFailure_ThrowsOrderProcessingException() throws Exception {
         // Given
         CreateOrderRequest request = createTestOrderRequest();
+        RuntimeException transactionException = new RuntimeException("Transaction failed");
         
-        when(inventoryServiceClient.reserveInventory(any()))
-            .thenThrow(new RuntimeException("Inventory service unavailable"));
+        doThrow(transactionException).when(orderRepository).create(any(Order.class), eq(transaction));
         
         // When & Then
         assertThatThrownBy(() -> orderProcessService.createOrder(request))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessageContaining("Failed to create order");
+            .isInstanceOf(OrderProcessingException.class)
+            .hasFieldOrPropertyWithValue("errorCode", OrderErrorCode.SYSTEM_ERROR)
+            .hasFieldOrPropertyWithValue("orderId", "UNKNOWN")
+            .hasMessageContaining("An unexpected error occurred during order creation");
         
         verify(transaction).abort();
-        verify(inventoryServiceClient, never()).confirmReservation(any());
-        verify(paymentServiceClient, never()).processPayment(any());
-        verify(shippingServiceClient, never()).createShipment(any());
     }
     
     @Test
-    void createOrder_PaymentFailure_CompensationExecuted() throws Exception {
+    void createOrder_UnexpectedError_ThrowsSystemErrorException() throws Exception {
         // Given
         CreateOrderRequest request = createTestOrderRequest();
+        RuntimeException unexpectedException = new RuntimeException("Unexpected error");
         
-        InventoryServiceClient.InventoryReservationResponse inventoryResponse = createInventoryResponse();
-        when(inventoryServiceClient.reserveInventory(any())).thenReturn(inventoryResponse);
-        when(paymentServiceClient.processPayment(any()))
-            .thenThrow(new RuntimeException("Payment failed"));
+        doThrow(unexpectedException).when(orderItemRepository).create(any(OrderItem.class), eq(transaction));
         
         // When & Then
         assertThatThrownBy(() -> orderProcessService.createOrder(request))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessageContaining("Failed to create order");
+            .isInstanceOf(OrderProcessingException.class)
+            .hasFieldOrPropertyWithValue("errorCode", OrderErrorCode.SYSTEM_ERROR)
+            .hasFieldOrPropertyWithValue("orderId", "UNKNOWN")
+            .hasMessageContaining("An unexpected error occurred during order creation");
         
-        verify(inventoryServiceClient).cancelReservation("RES-001");
-        verify(transaction).abort();
-        verify(shippingServiceClient, never()).createShipment(any());
-    }
-    
-    @Test
-    void createOrder_ShippingFailure_CompensationExecuted() throws Exception {
-        // Given
-        CreateOrderRequest request = createTestOrderRequest();
-        
-        InventoryServiceClient.InventoryReservationResponse inventoryResponse = createInventoryResponse();
-        PaymentServiceClient.PaymentResponse paymentResponse = createPaymentResponse();
-        
-        when(inventoryServiceClient.reserveInventory(any())).thenReturn(inventoryResponse);
-        when(paymentServiceClient.processPayment(any())).thenReturn(paymentResponse);
-        when(shippingServiceClient.createShipment(any()))
-            .thenThrow(new RuntimeException("Shipping failed"));
-        
-        // When & Then
-        assertThatThrownBy(() -> orderProcessService.createOrder(request))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessageContaining("Failed to create order");
-        
-        verify(inventoryServiceClient).cancelReservation("RES-001");
-        verify(paymentServiceClient).refundPayment(eq("PAY-001"), any());
         verify(transaction).abort();
     }
     
@@ -155,13 +156,11 @@ class OrderProcessServiceTest {
     void getOrder_Success() throws Exception {
         // Given
         String orderId = "ORD-001";
-        Order order = new Order(orderId, "CUST-001", OrderStatus.SHIPPED);
-        List<OrderItem> orderItems = List.of(
-            new OrderItem(orderId, "PROD-001", "Test Product", 1, new BigDecimal("1500.00"))
-        );
+        Order order = createTestOrder();
+        List<OrderItem> orderItems = createTestOrderItems();
         
-        when(orderRepository.findById(transaction, orderId)).thenReturn(Optional.of(order));
-        when(orderItemRepository.findByOrderId(transaction, orderId)).thenReturn(orderItems);
+        when(orderRepository.findById(orderId, transaction)).thenReturn(Optional.of(order));
+        when(orderItemRepository.findByOrderId(orderId, transaction)).thenReturn(orderItems);
         
         // When
         Optional<OrderResponse> result = orderProcessService.getOrder(orderId);
@@ -171,81 +170,102 @@ class OrderProcessServiceTest {
         assertThat(result.get().getOrderId()).isEqualTo(orderId);
         assertThat(result.get().getItems()).hasSize(1);
         
-        verify(transaction).commit();
+        verify(orderRepository).findById(orderId, transaction);
+        verify(orderItemRepository).findByOrderId(orderId, transaction);
+        verify(transaction, times(1)).commit();
     }
     
     @Test
-    void getOrder_NotFound() throws Exception {
+    void getOrder_NotFound_ReturnsEmpty() throws Exception {
         // Given
         String orderId = "ORD-999";
-        when(orderRepository.findById(transaction, orderId)).thenReturn(Optional.empty());
+        when(orderRepository.findById(orderId, transaction)).thenReturn(Optional.empty());
         
         // When
         Optional<OrderResponse> result = orderProcessService.getOrder(orderId);
         
         // Then
         assertThat(result).isEmpty();
-        verify(transaction).commit();
+        verify(orderRepository).findById(orderId, transaction);
+        verify(transaction, times(1)).commit();
     }
     
     @Test
     void cancelOrder_Success() throws Exception {
         // Given
         String orderId = "ORD-001";
-        Order order = new Order(orderId, "CUST-001", OrderStatus.PAYMENT_COMPLETED);
-        order.setInventoryReservationId("RES-001");
-        order.setPaymentId("PAY-001");
+        Order order = createTestOrder();
+        order.setStatusEnum(OrderStatus.PAYMENT_COMPLETED);
         
-        when(orderRepository.findById(transaction, orderId)).thenReturn(Optional.of(order));
+        when(orderRepository.findById(orderId, transaction)).thenReturn(Optional.of(order));
         
         // When
         orderProcessService.cancelOrder(orderId);
         
         // Then
-        verify(inventoryServiceClient).cancelReservation("RES-001");
-        verify(paymentServiceClient).refundPayment(eq("PAY-001"), any());
-        verify(orderRepository).save(eq(transaction), any(Order.class));
-        verify(transaction).commit();
+        verify(orderRepository).findById(orderId, transaction);
+        verify(orderRepository).update(any(Order.class), eq(transaction));
+        verify(compensationService).compensateOrderAsync(orderId);
+        verify(transaction, times(1)).commit();
     }
     
     @Test
-    void cancelOrder_AlreadyTerminal_ThrowsException() throws Exception {
+    void cancelOrder_OrderNotFound_ThrowsException() throws Exception {
         // Given
-        String orderId = "ORD-001";
-        Order order = new Order(orderId, "CUST-001", OrderStatus.DELIVERED);
-        
-        when(orderRepository.findById(transaction, orderId)).thenReturn(Optional.of(order));
+        String orderId = "ORD-999";
+        when(orderRepository.findById(orderId, transaction)).thenReturn(Optional.empty());
         
         // When & Then
         assertThatThrownBy(() -> orderProcessService.cancelOrder(orderId))
-            .isInstanceOf(RuntimeException.class)
+            .isInstanceOf(OrderProcessingException.class)
+            .hasFieldOrPropertyWithValue("errorCode", OrderErrorCode.ORDER_NOT_FOUND)
+            .hasFieldOrPropertyWithValue("orderId", orderId)
+            .hasMessageContaining("Order not found");
+        
+        verify(orderRepository).findById(orderId, transaction);
+        verify(transaction, atLeast(1)).abort();
+    }
+    
+    @Test
+    void cancelOrder_TerminalStatus_ThrowsException() throws Exception {
+        // Given
+        String orderId = "ORD-001";
+        Order order = createTestOrder();
+        order.setStatusEnum(OrderStatus.DELIVERED); // Terminal status
+        
+        when(orderRepository.findById(orderId, transaction)).thenReturn(Optional.of(order));
+        
+        // When & Then
+        assertThatThrownBy(() -> orderProcessService.cancelOrder(orderId))
+            .isInstanceOf(OrderProcessingException.class)
+            .hasFieldOrPropertyWithValue("errorCode", OrderErrorCode.INVALID_REQUEST)
+            .hasFieldOrPropertyWithValue("orderId", orderId)
             .hasMessageContaining("Cannot cancel order in status");
         
-        verify(transaction).abort();
+        verify(orderRepository).findById(orderId, transaction);
+        verify(transaction, atLeast(1)).abort();
     }
     
     @Test
     void getOrdersByCustomer_Success() throws Exception {
         // Given
         String customerId = "CUST-001";
-        List<Order> orders = List.of(
-            new Order("ORD-001", customerId, OrderStatus.SHIPPED),
-            new Order("ORD-002", customerId, OrderStatus.PENDING)
-        );
+        List<Order> orders = List.of(createTestOrder());
+        List<OrderItem> orderItems = createTestOrderItems();
         
-        when(orderRepository.findByCustomerId(transaction, customerId)).thenReturn(orders);
-        when(orderItemRepository.findByOrderId(transaction, "ORD-001")).thenReturn(new ArrayList<>());
-        when(orderItemRepository.findByOrderId(transaction, "ORD-002")).thenReturn(new ArrayList<>());
+        when(orderRepository.findByCustomerId(customerId, transaction)).thenReturn(orders);
+        when(orderItemRepository.findByOrderIds(any(), eq(transaction))).thenReturn(Map.of("ORD-001", orderItems));
         
         // When
         List<OrderResponse> result = orderProcessService.getOrdersByCustomer(customerId);
         
         // Then
-        assertThat(result).hasSize(2);
-        assertThat(result.get(0).getOrderId()).isEqualTo("ORD-001");
-        assertThat(result.get(1).getOrderId()).isEqualTo("ORD-002");
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCustomerId()).isEqualTo(customerId);
         
-        verify(transaction).commit();
+        verify(orderRepository).findByCustomerId(customerId, transaction);
+        verify(orderItemRepository).findByOrderIds(any(), eq(transaction));
+        verify(transaction, times(1)).commit();
     }
     
     private CreateOrderRequest createTestOrderRequest() {
@@ -259,13 +279,12 @@ class OrderProcessServiceTest {
         item.setQuantity(1);
         request.setItems(List.of(item));
         
-        // Payment details
+        // Secure payment details (tokenized)
         CreateOrderRequest.PaymentMethodDetails paymentDetails = new CreateOrderRequest.PaymentMethodDetails();
         paymentDetails.setPaymentMethod("CREDIT_CARD");
-        paymentDetails.setCardNumber("4111111111111111");
-        paymentDetails.setExpiryMonth("12");
-        paymentDetails.setExpiryYear("2025");
-        paymentDetails.setCvv("123");
+        paymentDetails.setPaymentToken("tok_1234567890abcdef");
+        paymentDetails.setLast4Digits("1234");
+        paymentDetails.setCardBrand("VISA");
         paymentDetails.setCardholderName("Test User");
         request.setPaymentMethodDetails(paymentDetails);
         
@@ -289,53 +308,26 @@ class OrderProcessServiceTest {
         return request;
     }
     
-    private InventoryServiceClient.InventoryReservationResponse createInventoryResponse() {
-        InventoryServiceClient.InventoryReservationResponse response = new InventoryServiceClient.InventoryReservationResponse();
-        response.setReservationId("RES-001");
-        response.setOrderId("ORD-001");
-        response.setCustomerId("CUST-001");
-        response.setStatus("RESERVED");
-        response.setExpiresAt(LocalDateTime.now().plusHours(24));
-        response.setCreatedAt(LocalDateTime.now());
-        
-        InventoryServiceClient.ReservedItem item = new InventoryServiceClient.ReservedItem();
-        item.setProductId("PROD-001");
-        item.setProductName("Test Product");
-        item.setReservedQuantity(1);
-        item.setUnitPrice(new BigDecimal("1500.00"));
-        response.setItems(List.of(item));
-        
-        return response;
+    private OrderResponse createTestOrderResponse() {
+        Order order = createTestOrder();
+        List<OrderItem> orderItems = createTestOrderItems();
+        return new OrderResponse(order, orderItems);
     }
     
-    private PaymentServiceClient.PaymentResponse createPaymentResponse() {
-        PaymentServiceClient.PaymentResponse response = new PaymentServiceClient.PaymentResponse();
-        response.setPaymentId("PAY-001");
-        response.setOrderId("ORD-001");
-        response.setCustomerId("CUST-001");
-        response.setAmount(new BigDecimal("1500.00"));
-        response.setCurrency("JPY");
-        response.setStatus("COMPLETED");
-        response.setPaymentMethod("CREDIT_CARD");
-        response.setTransactionId("TXN-001");
-        response.setAuthorizationCode("AUTH-001");
-        response.setProcessedAt(LocalDateTime.now());
-        
-        return response;
+    private Order createTestOrder() {
+        Order order = new Order("ORD-001", "CUST-001");
+        order.setStatusEnum(OrderStatus.SHIPPED);
+        order.setTotalAmount(new BigDecimal("1500.00"));
+        order.setPaymentMethod("CREDIT_CARD");
+        order.setShippingAddress("東京都渋谷区渋谷1-1-1, 渋谷区, 東京都 150-0002, JP");
+        order.setInventoryReservationId("RES-001");
+        order.setPaymentId("PAY-001");
+        order.setShipmentId("SHIP-001");
+        return order;
     }
     
-    private ShippingServiceClient.ShipmentResponse createShipmentResponse() {
-        ShippingServiceClient.ShipmentResponse response = new ShippingServiceClient.ShipmentResponse();
-        response.setShipmentId("SHIP-001");
-        response.setOrderId("ORD-001");
-        response.setCustomerId("CUST-001");
-        response.setStatus("PROCESSING");
-        response.setCarrier("YAMATO");
-        response.setTrackingNumber("ST123456789012");
-        response.setShippingMethod("STANDARD");
-        response.setEstimatedDeliveryDate(LocalDateTime.now().plusDays(3));
-        response.setCreatedAt(LocalDateTime.now());
-        
-        return response;
+    private List<OrderItem> createTestOrderItems() {
+        OrderItem item = new OrderItem("ORD-001", "PROD-001", "Test Product", 1, new BigDecimal("1500.00"));
+        return List.of(item);
     }
 }

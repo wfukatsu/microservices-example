@@ -6,100 +6,138 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Component;
-import java.util.concurrent.atomic.AtomicInteger;
 
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * Custom business metrics configuration
+ */
 @Configuration
 public class MetricsConfig {
 
+    // Atomic counters for real-time metrics
+    private final AtomicLong ordersCreatedToday = new AtomicLong(0);
+    private final AtomicLong ordersCancelledToday = new AtomicLong(0);
+    private final AtomicLong orderProcessingErrors = new AtomicLong(0);
+    private final AtomicLong totalRevenue = new AtomicLong(0);
+
     @Bean
-    public OrderMetrics orderMetrics(MeterRegistry meterRegistry) {
-        return new OrderMetrics(meterRegistry);
+    public Counter orderCreatedCounter(MeterRegistry meterRegistry) {
+        return Counter.builder("orders.created.total")
+                .description("Total number of orders created")
+                .tag("service", "order")
+                .register(meterRegistry);
     }
 
-    @Component
-    public static class OrderMetrics {
-        
-        private final Counter orderSuccessCounter;
-        private final Counter orderFailureCounter;
-        private final Counter orderCancellationCounter;
-        private final Timer orderProcessingTimer;
-        private final Timer distributedTransactionTimer;
-        private final AtomicInteger activeOrders = new AtomicInteger(0);
-        private final AtomicInteger failedCompensations = new AtomicInteger(0);
-
-        public OrderMetrics(MeterRegistry meterRegistry) {
-            // Counters
-            this.orderSuccessCounter = Counter.builder("order_processing_total")
-                .description("Total number of successful order processing")
-                .tag("status", "success")
+    @Bean
+    public Counter orderCancelledCounter(MeterRegistry meterRegistry) {
+        return Counter.builder("orders.cancelled.total")
+                .description("Total number of orders cancelled")
+                .tag("service", "order")
                 .register(meterRegistry);
-            
-            this.orderFailureCounter = Counter.builder("order_processing_total")
-                .description("Total number of failed order processing")
-                .tag("status", "failed")
+    }
+
+    @Bean
+    public Counter orderProcessingErrorCounter(MeterRegistry meterRegistry) {
+        return Counter.builder("orders.processing.errors.total")
+                .description("Total number of order processing errors")
+                .tag("service", "order")
                 .register(meterRegistry);
-            
-            this.orderCancellationCounter = Counter.builder("order_cancellation_total")
-                .description("Total number of order cancellations")
+    }
+
+    @Bean
+    public Timer orderProcessingTimer(MeterRegistry meterRegistry) {
+        return Timer.builder("orders.processing.duration")
+                .description("Order processing duration")
+                .tag("service", "order")
                 .register(meterRegistry);
-            
-            // Timers
-            this.orderProcessingTimer = Timer.builder("order_processing_duration_seconds")
-                .description("Time taken to process orders")
+    }
+
+    @Bean
+    public Counter compensationExecutedCounter(MeterRegistry meterRegistry) {
+        return Counter.builder("orders.compensation.executed.total")
+                .description("Total number of compensation actions executed")
+                .tag("service", "order")
                 .register(meterRegistry);
-            
-            this.distributedTransactionTimer = Timer.builder("distributed_transaction_duration_seconds")
-                .description("Time taken for distributed transactions")
+    }
+
+    @Bean
+    public Counter paymentProcessedCounter(MeterRegistry meterRegistry) {
+        return Counter.builder("payments.processed.total")
+                .description("Total number of payments processed")
+                .tag("service", "order")
                 .register(meterRegistry);
-            
-            // Gauges
-            Gauge.builder("order_active_processing")
-                .description("Number of orders currently being processed")
-                .register(meterRegistry, this, metrics -> metrics.activeOrders.get());
-            
-            Gauge.builder("order_failed_compensations")
-                .description("Number of failed compensation transactions")
-                .register(meterRegistry, this, metrics -> metrics.failedCompensations.get());
-        }
+    }
 
-        public void incrementOrderSuccess() {
-            orderSuccessCounter.increment();
-            activeOrders.decrementAndGet();
-        }
+    @Bean
+    public Gauge ordersTodayGauge(MeterRegistry meterRegistry) {
+        return Gauge.builder("orders.today.count", ordersCreatedToday, AtomicLong::doubleValue)
+                .description("Number of orders created today")
+                .tag("service", "order")
+                .register(meterRegistry);
+    }
 
-        public void incrementOrderFailure() {
-            orderFailureCounter.increment();
-            activeOrders.decrementAndGet();
-        }
+    @Bean
+    public Gauge ordersCancelledTodayGauge(MeterRegistry meterRegistry) {
+        return Gauge.builder("orders.cancelled.today.count", ordersCancelledToday, AtomicLong::doubleValue)
+                .description("Number of orders cancelled today")
+                .tag("service", "order")
+                .register(meterRegistry);
+    }
 
-        public void incrementOrderCancellation() {
-            orderCancellationCounter.increment();
-        }
+    @Bean
+    public Gauge orderProcessingErrorsGauge(MeterRegistry meterRegistry) {
+        return Gauge.builder("orders.processing.errors.count", orderProcessingErrors, AtomicLong::doubleValue)
+                .description("Current number of order processing errors")
+                .tag("service", "order")
+                .register(meterRegistry);
+    }
 
-        public Timer.Sample startOrderProcessingTimer() {
-            activeOrders.incrementAndGet();
-            return Timer.start();
-        }
+    @Bean
+    public Gauge totalRevenueGauge(MeterRegistry meterRegistry) {
+        return Gauge.builder("revenue.total.yen", totalRevenue, AtomicLong::doubleValue)
+                .description("Total revenue in yen")
+                .tag("service", "order")
+                .tag("currency", "JPY")
+                .register(meterRegistry);
+    }
 
-        public void recordOrderProcessingTime(Timer.Sample sample) {
-            sample.stop(orderProcessingTimer);
-        }
+    // Methods to update metrics
+    public void incrementOrdersCreatedToday() {
+        ordersCreatedToday.incrementAndGet();
+    }
 
-        public Timer.Sample startDistributedTransactionTimer() {
-            return Timer.start();
-        }
+    public void incrementOrdersCancelledToday() {
+        ordersCancelledToday.incrementAndGet();
+    }
 
-        public void recordDistributedTransactionTime(Timer.Sample sample) {
-            sample.stop(distributedTransactionTimer);
-        }
+    public void incrementOrderProcessingErrors() {
+        orderProcessingErrors.incrementAndGet();
+    }
 
-        public void incrementFailedCompensation() {
-            failedCompensations.incrementAndGet();
-        }
+    public void addRevenue(long amount) {
+        totalRevenue.addAndGet(amount);
+    }
 
-        public void decrementActiveOrders() {
-            activeOrders.decrementAndGet();
-        }
+    public void resetDailyCounters() {
+        ordersCreatedToday.set(0);
+        ordersCancelledToday.set(0);
+    }
+
+    // Getters for current values
+    public long getOrdersCreatedToday() {
+        return ordersCreatedToday.get();
+    }
+
+    public long getOrdersCancelledToday() {
+        return ordersCancelledToday.get();
+    }
+
+    public long getOrderProcessingErrors() {
+        return orderProcessingErrors.get();
+    }
+
+    public long getTotalRevenue() {
+        return totalRevenue.get();
     }
 }

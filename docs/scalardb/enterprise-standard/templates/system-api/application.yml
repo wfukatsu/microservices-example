@@ -1,0 +1,107 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: scalardb-system-api-enterprise-standard
+  profiles:
+    active: cluster
+
+# Application Security Configuration
+app:
+  security:
+    api:
+      username: ${API_USERNAME:api-user}
+      password: ${API_PASSWORD:api-password}
+    admin:
+      username: ${ADMIN_USERNAME:admin}
+      password: ${ADMIN_PASSWORD:admin}
+
+# ScalarDB Enterprise Standard Configuration
+scalardb:
+  cluster:
+    enabled: true
+    contact_points: ${SCALARDB_CLUSTER_CONTACT_POINTS:localhost}
+    contact_port: ${SCALARDB_CLUSTER_CONTACT_PORT:60051}
+  storage:
+    contact_points: ${SCALARDB_STORAGE_CONTACT_POINTS:localhost}
+    contact_port: ${SCALARDB_STORAGE_CONTACT_PORT:9042}
+    storage: ${SCALARDB_STORAGE:cassandra}
+    username: ${SCALARDB_STORAGE_USERNAME:}
+    password: ${SCALARDB_STORAGE_PASSWORD:}
+  auth:
+    enabled: true
+    username: ${SCALARDB_AUTH_USERNAME:admin}
+    password: ${SCALARDB_AUTH_PASSWORD:admin}
+
+# Actuator Configuration with Enterprise Features
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,env,configprops
+  endpoint:
+    health:
+      show-details: always
+      group:
+        readiness:
+          include: "readinessState,scalardb"
+        liveness:
+          include: "livenessState,diskSpace"
+    metrics:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true
+        "[scalardb.transaction.duration]": true
+
+# Logging Configuration with Structured Logging
+logging:
+  level:
+    com.example.scalardb: DEBUG
+    com.scalar.db: INFO
+    org.springframework.security: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%X{traceId:-},%X{spanId:-}] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%X{traceId:-},%X{spanId:-}] [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/system-api-enterprise.log
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+scalardb:
+  cluster:
+    enabled: false
+  storage:
+    storage: memory
+
+logging:
+  level:
+    com.example.scalardb: DEBUG
+    com.scalar.db: DEBUG
+
+---
+# Production Profile  
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+scalardb:
+  cluster:
+    enabled: true
+    contact_points: ${SCALARDB_CLUSTER_NODES}
+    
+logging:
+  level:
+    com.example.scalardb: INFO
+    com.scalar.db: WARN

@@ -48,20 +48,18 @@ public interface PaymentServiceClient {
     }
 
     class PaymentMethodDetails {
-        private String cardNumber;
-        private String expiryMonth;
-        private String expiryYear;
-        private String cvv;
+        // ✅ Security: Use tokenized payment data instead of raw card details
+        private String paymentToken;
+        private String last4Digits;
+        private String cardBrand;
         private String cardholderName;
 
-        public String getCardNumber() { return cardNumber; }
-        public void setCardNumber(String cardNumber) { this.cardNumber = cardNumber; }
-        public String getExpiryMonth() { return expiryMonth; }
-        public void setExpiryMonth(String expiryMonth) { this.expiryMonth = expiryMonth; }
-        public String getExpiryYear() { return expiryYear; }
-        public void setExpiryYear(String expiryYear) { this.expiryYear = expiryYear; }
-        public String getCvv() { return cvv; }
-        public void setCvv(String cvv) { this.cvv = cvv; }
+        public String getPaymentToken() { return paymentToken; }
+        public void setPaymentToken(String paymentToken) { this.paymentToken = paymentToken; }
+        public String getLast4Digits() { return last4Digits; }
+        public void setLast4Digits(String last4Digits) { this.last4Digits = last4Digits; }
+        public String getCardBrand() { return cardBrand; }
+        public void setCardBrand(String cardBrand) { this.cardBrand = cardBrand; }
         public String getCardholderName() { return cardholderName; }
         public void setCardholderName(String cardholderName) { this.cardholderName = cardholderName; }
     }

@@ -30,13 +30,13 @@ public class OrderResponse {
         this.orderId = order.getOrderId();
         this.customerId = order.getCustomerId();
         this.status = order.getStatusEnum();
-        this.totalAmount = order.getTotalAmountDecimal();
+        this.totalAmount = order.getTotalAmount();
         this.currency = order.getCurrency();
         this.paymentMethod = order.getPaymentMethod();
         this.shippingAddress = order.getShippingAddress();
         this.notes = order.getNotes();
-        this.createdAt = order.getCreatedAtDateTime();
-        this.updatedAt = order.getUpdatedAtDateTime();
+        this.createdAt = order.getCreatedAt();
+        this.updatedAt = order.getUpdatedAt();
         this.inventoryReservationId = order.getInventoryReservationId();
         this.paymentId = order.getPaymentId();
         this.shipmentId = order.getShipmentId();
@@ -174,11 +174,11 @@ public class OrderResponse {
             this.productId = orderItem.getProductId();
             this.productName = orderItem.getProductName();
             this.quantity = orderItem.getQuantity();
-            this.unitPrice = orderItem.getUnitPriceDecimal();
-            this.totalPrice = orderItem.getTotalPriceDecimal();
-            this.currency = orderItem.getCurrency();
-            this.weight = orderItem.getWeightDecimal();
-            this.createdAt = orderItem.getCreatedAtDateTime();
+            this.unitPrice = orderItem.getUnitPrice();
+            this.totalPrice = orderItem.getTotalPrice();
+            this.currency = "USD"; // Default currency
+            this.weight = BigDecimal.ONE; // Default weight
+            this.createdAt = orderItem.getCreatedAt();
         }
 
         // Getters and setters

@@ -1,0 +1,69 @@
+# User GraphQL Schema for ScalarDB Enterprise Premium
+
+type Query {
+    # Get user by ID
+    userById(id: ID!): UserResponse
+    
+    # Get user by email
+    userByEmail(email: String!): UserResponse
+    
+    # Get all users
+    allUsers: [UserResponse!]!
+    
+    # Get users by status
+    usersByStatus(status: String!): [UserResponse!]!
+    
+    # Search users by name pattern
+    searchUsers(namePattern: String!): [UserResponse!]!
+    
+    # Get recent users within specified days
+    recentUsers(days: Int): [UserResponse!]!
+    
+    # Get count of active users
+    activeUserCount: Long!
+    
+    # Get count of inactive users
+    inactiveUserCount: Long!
+}
+
+type Mutation {
+    # Create a new user
+    createUser(input: CreateUserRequest!): UserResponse!
+    
+    # Update an existing user
+    updateUser(id: ID!, input: UpdateUserRequest!): UserResponse!
+    
+    # Delete a user
+    deleteUser(id: ID!): Boolean!
+    
+    # Activate a user
+    activateUser(id: ID!): UserResponse!
+    
+    # Deactivate a user
+    deactivateUser(id: ID!): UserResponse!
+}
+
+# User response type
+type UserResponse {
+    id: ID!
+    name: String!
+    email: String!
+    status: String!
+    createdAt: String!
+    updatedAt: String!
+}
+
+# Input types
+input CreateUserRequest {
+    name: String!
+    email: String!
+}
+
+input UpdateUserRequest {
+    name: String
+    email: String
+    status: String
+}
+
+# Scalar types
+scalar Long

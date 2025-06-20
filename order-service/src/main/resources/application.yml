@@ -10,12 +10,38 @@ spring:
           default:
             connectTimeout: 5000
             readTimeout: 30000
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: ${REDIS_TIMEOUT:3000ms}
+      database: ${REDIS_DATABASE:0}
+      jedis:
+        pool:
+          max-active: ${REDIS_POOL_MAX_ACTIVE:20}
+          max-idle: ${REDIS_POOL_MAX_IDLE:10}
+          min-idle: ${REDIS_POOL_MIN_IDLE:1}
+          max-wait: ${REDIS_POOL_MAX_WAIT:3000ms}
 
 server:
   port: ${SERVER_PORT:8080}
 
+# ScalarDB Configuration - Community Edition
 scalardb:
   properties: classpath:scalardb.properties
+
+# JWT Security Configuration
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds
+  issuer: ${JWT_ISSUER:order-service}
+  header: Authorization
+
+# Redis Cache Configuration
+cache:
+  redis:
+    enabled: ${CACHE_REDIS_ENABLED:false}
 
 # External service configurations
 services:
@@ -56,6 +82,11 @@ order:
   payment:
     auto-capture: true
     capture-timeout: 60s
+  
+  # Configuration for future features
+  # analytics:
+  #   enabled: false
+  #   batch-size: 100
 
 # Circuit breaker configuration
 resilience4j:
@@ -103,9 +134,10 @@ management:
 
 logging:
   level:
-    com.scalar.db: DEBUG
-    com.example.order: DEBUG
-    feign: DEBUG
+    com.scalar.db: INFO
+    com.example.order: INFO
+    feign: WARN
+    org.springframework.security: WARN
   pattern:
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

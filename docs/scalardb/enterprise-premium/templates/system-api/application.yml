@@ -1,0 +1,156 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: scalardb-system-api-enterprise-premium
+  profiles:
+    active: premium
+  
+  # GraphQL Configuration
+  graphql:
+    graphiql:
+      enabled: true
+      path: /graphiql
+    path: /graphql
+    cors:
+      allowed-origins: "*"
+      allowed-methods: GET,POST
+      allowed-headers: "*"
+
+# Application Security Configuration
+app:
+  security:
+    api:
+      username: ${API_USERNAME:api-user}
+      password: ${API_PASSWORD:api-password}
+    admin:
+      username: ${ADMIN_USERNAME:admin}
+      password: ${ADMIN_PASSWORD:admin}
+
+# ScalarDB Enterprise Premium Configuration
+scalardb:
+  cluster:
+    contact_points: ${SCALARDB_CLUSTER_CONTACT_POINTS:localhost}
+    contact_port: ${SCALARDB_CLUSTER_CONTACT_PORT:60051}
+  auth:
+    username: ${SCALARDB_AUTH_USERNAME:admin}
+    password: ${SCALARDB_AUTH_PASSWORD:admin}
+  vector:
+    enabled: ${SCALARDB_VECTOR_ENABLED:true}
+  sql:
+    enabled: ${SCALARDB_SQL_ENABLED:true}
+  graphql:
+    enabled: ${SCALARDB_GRAPHQL_ENABLED:true}
+
+# Spring Data JDBC Configuration
+spring:
+  datasource:
+    driver-class-name: com.scalar.db.jdbc.ScalarDBDriver
+    url: jdbc:scalardb:cluster:${scalardb.cluster.contact_points}:${scalardb.cluster.contact_port}
+    username: ${scalardb.auth.username}
+    password: ${scalardb.auth.password}
+
+# Actuator Configuration with Premium Features
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,env,configprops,graphql
+  endpoint:
+    health:
+      show-details: always
+      group:
+        readiness:
+          include: "readinessState,scalardb,vectorsearch"
+        liveness:
+          include: "livenessState,diskSpace"
+    metrics:
+      enabled: true
+    graphql:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true
+        "[scalardb.transaction.duration]": true
+        "[graphql.request.duration]": true
+    tags:
+      application: scalardb-premium-api
+      environment: ${ENVIRONMENT:development}
+
+# Logging Configuration with Advanced Features
+logging:
+  level:
+    com.example.scalardb: DEBUG
+    com.scalar.db: INFO
+    org.springframework.security: INFO
+    org.springframework.graphql: DEBUG
+    org.springframework.data.jdbc: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%X{traceId:-},%X{spanId:-}] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%X{traceId:-},%X{spanId:-}] [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/system-api-premium.log
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+scalardb:
+  cluster:
+    contact_points: localhost
+    contact_port: 60051
+
+logging:
+  level:
+    com.example.scalardb: DEBUG
+    com.scalar.db: DEBUG
+
+---
+# Production Profile  
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+scalardb:
+  cluster:
+    contact_points: ${SCALARDB_CLUSTER_NODES}
+    
+logging:
+  level:
+    com.example.scalardb: INFO
+    com.scalar.db: WARN
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+
+---
+# Premium Profile with All Features
+spring:
+  config:
+    activate:
+      on-profile: premium
+
+scalardb:
+  vector:
+    enabled: true
+  sql:
+    enabled: true
+  graphql:
+    enabled: true
+
+spring:
+  graphql:
+    graphiql:
+      enabled: true

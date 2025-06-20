@@ -1,14 +1,32 @@
 spring:
   application:
     name: order-service-test
-  profiles:
-    active: test
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 1000ms
+      jedis:
+        pool:
+          max-active: 1
+          max-idle: 1
+          min-idle: 0
+          max-wait: 1000ms
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
 
 server:
   port: 0
 
 scalardb:
   properties: classpath:scalardb-test.properties
+
+# JWT Security Configuration for testing (test-specific overrides only)
+jwt:
+  secret: test-secret-key-for-jwt-token-generation-and-validation-testing-purposes-only
+  issuer: order-service-test
 
 # Test service configurations
 services:
@@ -89,6 +107,11 @@ management:
   endpoint:
     health:
       show-details: always
+  health:
+    circuitbreakers:
+      enabled: false
+    redis:
+      enabled: false
 
 logging:
   level:
