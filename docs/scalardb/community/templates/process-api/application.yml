@@ -1,0 +1,41 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: scalardb-process-api-community
+
+# System API Configuration
+system-api:
+  base-url: http://localhost:8080
+
+# ScalarDB Configuration  
+scalardb:
+  storage:
+    contact_points: localhost
+    contact_port: 9042
+    storage: cassandra
+    username: 
+    password: 
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging Configuration
+logging:
+  level:
+    com.example.scalardb: DEBUG
+    com.scalar.db: INFO
+    reactor.netty.http.client: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/process-api.log

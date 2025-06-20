@@ -8,6 +8,7 @@ import java.util.List;
 public class CreateOrderRequest {
     
     @NotBlank(message = "Customer ID is required")
+    @Pattern(regexp = "^[A-Z0-9-]+$", message = "Invalid customer ID format")
     private String customerId;
     
     @NotEmpty(message = "Order items are required")
@@ -22,6 +23,7 @@ public class CreateOrderRequest {
     @Valid
     private ShippingInfo shippingInfo;
     
+    @Size(max = 500, message = "Notes too long")
     private String notes;
 
     // Getters and setters
@@ -91,12 +93,20 @@ public class CreateOrderRequest {
 
     public static class PaymentMethodDetails {
         @NotBlank(message = "Payment method is required")
+        @Pattern(regexp = "^[A-Z_]+$", message = "Invalid payment method format")
         private String paymentMethod;
         
-        private String cardNumber;
-        private String expiryMonth;
-        private String expiryYear;
-        private String cvv;
+        // ✅ Security: Use tokenized payment reference instead of raw card data
+        @NotBlank(message = "Payment token is required")
+        private String paymentToken;
+        
+        @Pattern(regexp = "^\\d{4}$", message = "Last 4 digits must be exactly 4 digits")
+        private String last4Digits;  // Safe to store for display
+        
+        @Pattern(regexp = "^[A-Z]+$", message = "Invalid card brand format")
+        private String cardBrand;    // Safe to store (VISA, MASTERCARD, etc.)
+        
+        @Size(max = 100, message = "Cardholder name too long")
         private String cardholderName;
 
         public String getPaymentMethod() {
@@ -107,36 +117,28 @@ public class CreateOrderRequest {
             this.paymentMethod = paymentMethod;
         }
 
-        public String getCardNumber() {
-            return cardNumber;
+        public String getPaymentToken() {
+            return paymentToken;
         }
 
-        public void setCardNumber(String cardNumber) {
-            this.cardNumber = cardNumber;
+        public void setPaymentToken(String paymentToken) {
+            this.paymentToken = paymentToken;
         }
 
-        public String getExpiryMonth() {
-            return expiryMonth;
+        public String getLast4Digits() {
+            return last4Digits;
         }
 
-        public void setExpiryMonth(String expiryMonth) {
-            this.expiryMonth = expiryMonth;
+        public void setLast4Digits(String last4Digits) {
+            this.last4Digits = last4Digits;
         }
 
-        public String getExpiryYear() {
-            return expiryYear;
+        public String getCardBrand() {
+            return cardBrand;
         }
 
-        public void setExpiryYear(String expiryYear) {
-            this.expiryYear = expiryYear;
-        }
-
-        public String getCvv() {
-            return cvv;
-        }
-
-        public void setCvv(String cvv) {
-            this.cvv = cvv;
+        public void setCardBrand(String cardBrand) {
+            this.cardBrand = cardBrand;
         }
 
         public String getCardholderName() {

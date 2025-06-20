@@ -6,16 +6,28 @@
       "order_id": "TEXT",
       "customer_id": "TEXT",
       "status": "TEXT",
-      "total_amount": "BIGINT",
+      "total_amount": "TEXT",
       "currency": "TEXT",
       "payment_method": "TEXT",
       "shipping_address": "TEXT",
       "notes": "TEXT",
-      "created_at": "BIGINT",
-      "updated_at": "BIGINT",
+      "created_at": "TEXT",
+      "updated_at": "TEXT",
       "inventory_reservation_id": "TEXT",
       "payment_id": "TEXT",
       "shipment_id": "TEXT"
+    }
+  },
+  "order_service.orders_by_customer": {
+    "transaction": true,
+    "partition-key": ["customer_id"],
+    "clustering-key": ["created_at"],
+    "columns": {
+      "customer_id": "TEXT",
+      "order_id": "TEXT",
+      "status": "TEXT",
+      "total_amount": "TEXT",
+      "created_at": "TEXT"
     }
   },
   "order_service.order_items": {
@@ -26,11 +38,11 @@
       "product_id": "TEXT",
       "product_name": "TEXT",
       "quantity": "INT",
-      "unit_price": "BIGINT",
-      "total_price": "BIGINT",
+      "unit_price": "TEXT",
+      "total_price": "TEXT",
       "currency": "TEXT",
       "weight": "BIGINT",
-      "created_at": "BIGINT"
+      "created_at": "TEXT"
     }
   }
 }
