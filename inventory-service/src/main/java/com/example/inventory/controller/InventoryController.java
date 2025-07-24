@@ -2,6 +2,7 @@ package com.example.inventory.controller;
 
 import com.example.inventory.dto.CreateInventoryItemRequest;
 import com.example.inventory.dto.ReserveInventoryRequest;
+import com.example.inventory.dto.InventoryCheckResponse;
 import com.example.inventory.entity.InventoryItem;
 import com.example.inventory.entity.InventoryReservation;
 import com.example.inventory.service.InventoryService;
@@ -14,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/inventory")
+@RequestMapping("/api/v1/inventory")
 public class InventoryController {
     
     @Autowired
@@ -81,5 +82,30 @@ public class InventoryController {
     public ResponseEntity<List<InventoryReservation>> getCustomerReservations(@PathVariable String customerId) {
         List<InventoryReservation> reservations = inventoryService.getReservationsByCustomer(customerId);
         return ResponseEntity.ok(reservations);
+    }
+
+    @PostMapping("/reserve")
+    public ResponseEntity<InventoryReservation> reserveInventoryDirect(@Valid @RequestBody ReserveInventoryRequest request) {
+        InventoryReservation reservation = inventoryService.reserveInventory(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(reservation);
+    }
+
+    @PostMapping("/confirm/{reservationId}")
+    public ResponseEntity<Void> confirmReservation(@PathVariable String reservationId) {
+        inventoryService.confirmReservation(reservationId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/cancel/{reservationId}")
+    public ResponseEntity<Void> cancelReservation(@PathVariable String reservationId) {
+        inventoryService.cancelReservation(reservationId);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/check")
+    public ResponseEntity<InventoryCheckResponse> checkInventory(@RequestParam String productId,
+            @RequestParam int quantity) {
+        InventoryCheckResponse response = inventoryService.checkInventory(productId, quantity);
+        return ResponseEntity.ok(response);
     }
 }

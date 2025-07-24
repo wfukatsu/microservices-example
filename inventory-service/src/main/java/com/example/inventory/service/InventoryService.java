@@ -2,6 +2,7 @@ package com.example.inventory.service;
 
 import com.example.inventory.dto.CreateInventoryItemRequest;
 import com.example.inventory.dto.ReserveInventoryRequest;
+import com.example.inventory.dto.InventoryCheckResponse;
 import com.example.inventory.entity.InventoryItem;
 import com.example.inventory.entity.InventoryReservation;
 import com.example.inventory.entity.InventoryStatus;
@@ -252,6 +253,61 @@ public class InventoryService {
             transaction.abort();
             log.error("Failed to get reservations for customer: {}", customerId, e);
             throw new RuntimeException("Failed to get reservations for customer", e);
+        }
+    }
+
+    public void confirmReservation(String reservationId) {
+        DistributedTransaction transaction = transactionManager.start();
+        try {
+            Optional<InventoryReservation> reservationOpt = reservationRepository.findById(transaction, reservationId);
+            if (reservationOpt.isEmpty()) {
+                throw new ReservationNotFoundException("Reservation not found: " + reservationId);
+            }
+
+            InventoryReservation reservation = reservationOpt.get();
+            if (!ReservationStatus.ACTIVE.name().equals(reservation.getReservationStatus())) {
+                throw new InvalidReservationStatusException("Reservation is not active: " + reservationId);
+            }
+
+            reservation.setReservationStatusEnum(ReservationStatus.CONFIRMED);
+            reservation.setUpdatedAt(System.currentTimeMillis());
+            reservationRepository.save(transaction, reservation);
+
+            transaction.commit();
+
+            log.info("Confirmed reservation: {}", reservationId);
+        } catch (Exception e) {
+            transaction.abort();
+            log.error("Failed to confirm reservation: {}", reservationId, e);
+            throw new RuntimeException("Failed to confirm reservation", e);
+        }
+    }
+
+    public void cancelReservation(String reservationId) {
+        releaseReservation(reservationId);
+    }
+
+    public InventoryCheckResponse checkInventory(String productId, int quantity) {
+        DistributedTransaction transaction = transactionManager.start();
+        try {
+            Optional<InventoryItem> itemOpt = inventoryRepository.findById(transaction, productId);
+            transaction.commit();
+
+            InventoryCheckResponse response = new InventoryCheckResponse();
+            response.setProductId(productId);
+            if (itemOpt.isPresent()) {
+                InventoryItem item = itemOpt.get();
+                response.setAvailableQuantity(item.getAvailableQuantity());
+                response.setAvailable(item.getAvailableQuantity() >= quantity);
+            } else {
+                response.setAvailableQuantity(0);
+                response.setAvailable(false);
+            }
+            return response;
+        } catch (Exception e) {
+            transaction.abort();
+            log.error("Failed to check inventory for product: {}", productId, e);
+            throw new RuntimeException("Failed to check inventory", e);
         }
     }
 }
