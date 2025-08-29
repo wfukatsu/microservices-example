@@ -242,6 +242,27 @@ public class ShippingService {
             throw new RuntimeException("Failed to get shipping items", e);
         }
     }
+
+    public TrackingInfo getTrackingInfo(String shipmentId) {
+        DistributedTransaction transaction = transactionManager.start();
+        try {
+            Optional<Shipment> shipmentOpt = shipmentRepository.findById(transaction, shipmentId);
+            if (shipmentOpt.isEmpty()) {
+                throw new ShipmentNotFoundException("Shipment not found: " + shipmentId);
+            }
+
+            Shipment shipment = shipmentOpt.get();
+            TrackingInfo trackingInfo = carrierIntegrationService.getTrackingInfo(
+                shipment.getCarrier(), shipment.getTrackingNumber());
+
+            transaction.commit();
+            return trackingInfo;
+        } catch (Exception e) {
+            transaction.abort();
+            log.error("Failed to get tracking info for shipment: {}", shipmentId, e);
+            throw new RuntimeException("Failed to get tracking info", e);
+        }
+    }
     
     private boolean isValidStatusTransition(ShippingStatus from, ShippingStatus to) {
         // Define valid status transitions

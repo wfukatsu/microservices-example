@@ -175,6 +175,33 @@ class ShippingServiceTest {
         verify(shipmentRepository).save(transaction, any(Shipment.class));
         verify(transaction).commit();
     }
+
+    @Test
+    void getTrackingInfo_Success() throws Exception {
+        // Given
+        String shipmentId = "SHIP-TRACK";
+        Shipment shipment = new Shipment(shipmentId, "ORDER-001", "CUST-001", "YAMATO");
+        shipment.setTrackingNumber("ST123456789012");
+
+        TrackingInfo trackingInfo = TrackingInfo.builder()
+            .trackingNumber("ST123456789012")
+            .status("IN_TRANSIT")
+            .lastUpdated(LocalDateTime.now())
+            .currentLocation("Tokyo")
+            .estimatedDelivery(LocalDateTime.now().plusDays(1))
+            .build();
+
+        when(shipmentRepository.findById(transaction, shipmentId)).thenReturn(Optional.of(shipment));
+        when(carrierIntegrationService.getTrackingInfo("YAMATO", "ST123456789012"))
+            .thenReturn(trackingInfo);
+
+        // When
+        TrackingInfo result = shippingService.getTrackingInfo(shipmentId);
+
+        // Then
+        assertThat(result).isEqualTo(trackingInfo);
+        verify(transaction).commit();
+    }
     
     private CreateShipmentRequest createTestShipmentRequest() {
         CreateShipmentRequest request = new CreateShipmentRequest();
